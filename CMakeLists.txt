@@ -32,28 +32,8 @@ set_target_properties (vl53l0x PROPERTIES
 )
 
 ### WiringPi
-if (DEFINED ENV{WIRINGPI_DIR})
-	set (WIRINGPI_DIR $ENV{WIRINGPI_DIR})
-endif ()
-
-# Set WiringPi directory: from cmake -D, from ENV and default
-if (DEFINED WIRINGPI_DIR)
-	message (STATUS "Using provided WiringPi directory: ${WIRINGPI_DIR}")
-	# Include directories are relative to source dir
-	set (wiringPi_INCLUDE_DIR "${WIRINGPI_DIR}/wiringPi")
-	# Linking directories are relative to build dir
-	set (wiringPi_LIBRARIES "${WIRINGPI_DIR}/build/wiringPi/libwiringPi.so.2")
-
-	target_include_directories (vl53l0x PUBLIC ${wiringPi_INCLUDE_DIR})
-	target_link_libraries (vl53l0x LINK_PUBLIC ${wiringPi_LIBRARIES})
-else ()
-	message (STATUS "Using system WiringPi library")
-	find_package (wiringPi REQUIRED)
-
-	# Add WiringPi dependency
-	# target_include_directories (vl53l0x PUBLIC wiringPi)
-	target_link_libraries (vl53l0x LINK_PUBLIC wiringPi)
-endif ()
+target_link_libraries(vl53l0x LINK_PUBLIC wiringPi)
+add_dependencies(vl53l0x LinuxDuino)
 
 ### Install target
 set (CMAKE_INSTALL_PREFIX /usr/)

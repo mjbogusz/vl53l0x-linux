@@ -5,15 +5,14 @@
 // strerror()
 #include <cstring>
 // struct timespec, clock_gettime()
-#include <ctime>
 // std::string etc
 #include <string>
 // close()
 #include <unistd.h>
 // GPIO: pinMode(), digitalWrite()
 #include <wiringPi.h>
-// I2C: wiringPiI2CWriteReg() etc
-#include <wiringPiI2C.h>
+// I2C: LinuxDuino
+using namespace LinuxDuino;
 
 /*** Defines ***/
 
@@ -46,7 +45,6 @@ uint64_t milliseconds() {
 VL53L0X::VL53L0X(const int16_t xshutGPIOPin, const uint8_t address) {
 	this->xshutGPIOPin = xshutGPIOPin;
 	this->address = address;
-	this->i2cFileDescriptor = -1;
 
 	this->ioTimeout = 0;
 	this->didTimeout = false;
@@ -69,10 +67,7 @@ bool VL53L0X::init(bool ioMode2v8) {
 	this->powerOn();
 
 	// Initialize I2C communication
-	this->i2cFileDescriptor = wiringPiI2CSetup(this->address);
-	if (this->i2cFileDescriptor == -1) {
-		throw(std::string("Error initializing I2C communication: ") + std::string(strerror(errno)));
-	}
+    _wire = new Wire(1);
 
 	// VL53L0X_DataInit() begin
 
@@ -309,69 +304,57 @@ void VL53L0X::powerOff() {
 }
 
 void VL53L0X::writeRegister(uint8_t reg, uint8_t value) {
-	int p = wiringPiI2CWriteReg8(this->i2cFileDescriptor, reg, value);
-	lastStatus = (p == -1 ? errno : 0);
-	if (p == -1) {
-		throw(std::string("Error writing byte to register: ") + std::string(strerror(errno)));
-	}
+    _wire->beginTransmission(address);
+    _wire->write((uint8_t) reg, (uint8_t) value);
+    _wire->endTransmission();
 }
 
 void VL53L0X::writeRegister16Bit(uint8_t reg, uint16_t value) {
 	// Reverse endianness
 	uint16_t valueFixed = ((value & 0xFF) << 8) + ((value & 0xFF00) >> 8);
 
-	int p = wiringPiI2CWriteReg16(this->i2cFileDescriptor, reg, valueFixed);
-
-	lastStatus = (p == -1 ? errno : 0);
-	if (p == -1) {
-		throw(std::string("Error writing word to register: ") + std::string(strerror(errno)));
-	}
+    _wire->beginTransmission(address);
+    _wire->write16((uint8_t) reg, (uint16_t) valueFixed);
+    _wire->endTransmission();
 }
 
 void VL53L0X::writeRegister32Bit(uint8_t reg, uint32_t value) {
 	// Split 32-bit word into MS ... LS bytes
-	int* buffer = new int[4]();
+    uint8_t *buffer = new uint8_t[4]();
 	buffer[0] = (value >> 24) & 0xFF;
 	buffer[1] = (value >> 16) & 0xFF;
 	buffer[2] = (value >> 8) & 0xFF;
 	buffer[3] = value & 0xFF;
 
-	int p = wiringPiI2CWriteRegBlock(this->i2cFileDescriptor, reg, buffer, 4);
+    _wire->beginTransmission(address);
+    _wire->writeBlock((uint8_t) reg, buffer, 4);
+    _wire->endTransmission();
 	delete [] buffer;
-
-	lastStatus = (p == -1 ? errno : 0);
-	if (p == -1) {
-		throw(std::string("Error writing dword to register"));
-	}
 }
 
 void VL53L0X::writeRegisterMultiple(uint8_t reg, const uint8_t* source, uint8_t count) {
-	int* buffer = new int[count]();
+    uint8_t *buffer = new uint8_t[count]();
 	for (int i = 0; i < count; ++i) {
 		buffer[i] = source[i];
 	}
 
-	int p = wiringPiI2CWriteRegBlock(this->i2cFileDescriptor, reg, buffer, count);
+    _wire->beginTransmission(address);
+    _wire->writeBlock((uint8_t) reg, buffer, count);
+    _wire->endTransmission();
 	delete [] buffer;
-
-	lastStatus = (p == -1 ? errno : 0);
-	if (p == -1) {
-		throw(std::string("Error writing block to register"));
-	}
 }
 
 uint8_t VL53L0X::readRegister(uint8_t reg) {
-	int p = wiringPiI2CReadReg8(this->i2cFileDescriptor, reg);
-	lastStatus = (p == -1 ? errno : 0);
-
-	if (p == -1) {
-		throw(std::string("Error reading byte from register"));
-	}
+    _wire->beginTransmission(address);
+    int p = _wire->read(reg);
+    _wire->endTransmission();
 	return p & 0xFF;
 }
 
 uint16_t VL53L0X::readRegister16Bit(uint8_t reg) {
-	int p = wiringPiI2CReadReg16(this->i2cFileDescriptor, reg);
+    _wire->beginTransmission(address);
+    int p = _wire->read16(reg);
+    _wire->endTransmission();
 
 	lastStatus = (p == -1 ? errno : 0);
 	if (p == -1) {
@@ -383,8 +366,11 @@ uint16_t VL53L0X::readRegister16Bit(uint8_t reg) {
 }
 
 uint32_t VL53L0X::readRegister32Bit(uint8_t reg) {
-	int* buffer = new int[4]();
-	int p = wiringPiI2CReadRegBlock(this->i2cFileDescriptor, reg, buffer, 4);
+    uint8_t *buffer = new uint8_t[4]();
+
+    _wire->beginTransmission(address);
+    int p = _wire->readBlock(reg, buffer, 4);
+    _wire->endTransmission();
 
 	lastStatus = (p == -1 ? errno : 0);
 	if (p == -1) {
@@ -402,8 +388,11 @@ uint32_t VL53L0X::readRegister32Bit(uint8_t reg) {
 }
 
 void VL53L0X::readRegisterMultiple(uint8_t reg, uint8_t* destination, uint8_t count) {
-	int* buffer = new int[count]();
-	int p = wiringPiI2CReadRegBlock(this->i2cFileDescriptor, reg, buffer, count);
+    uint8_t *buffer = new uint8_t[count]();
+
+    _wire->beginTransmission(address);
+    int p = _wire->readBlock(reg, buffer, count);
+    _wire->endTransmission();
 
 	lastStatus = (p == -1 ? errno : 0);
 	if (p == -1) {
@@ -422,14 +411,7 @@ void VL53L0X::setAddress(uint8_t newAddress) {
 	// Set new I2C address
 	this->writeRegister(I2C_SLAVE_DEVICE_ADDRESS, newAddress & 0x7F);
 	// Close I2C communication on old address
-	close(this->address);
-	// Save new address
 	this->address = newAddress;
-	// Reinitialize I2C communication on new address
-	this->i2cFileDescriptor = wiringPiI2CSetup(this->address);
-	if (this->i2cFileDescriptor == -1) {
-		throw(std::string("Error initializing I2C communication on new address: ") + std::string(strerror(errno)));
-	}
 }
 
 bool VL53L0X::setSignalRateLimit(float limitMCPS) {

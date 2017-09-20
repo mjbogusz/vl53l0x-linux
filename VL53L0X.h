@@ -7,6 +7,7 @@
 #define _VL53L0X_H
 
 #include <cstdint>
+#include "../LinuxDuino/LinuxDuino.h"
 
 //#define VL53L0X_ADDRESS_DEFAULT 0b0101001
 #define VL53L0X_ADDRESS_DEFAULT 0x29
@@ -259,6 +260,7 @@ class VL53L0X {
 		/*** Private fields ***/
 
 		int i2cFileDescriptor;
+    LinuxDuino::Wire *_wire = NULL;
 		int16_t xshutGPIOPin;
 		uint8_t address;
 
