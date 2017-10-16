@@ -6,7 +6,7 @@ include (CMakePackageConfigHelpers)
 
 ### Setup compiler
 # Try to use GCC/G++ 6
-include (cmake_modules/SetGCC6.cmake)
+# include (cmake_modules/SetGCC6.cmake)
 # Set warning flags
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wformat=2 -Wall -Wextra")
 # Set optimalization flags
