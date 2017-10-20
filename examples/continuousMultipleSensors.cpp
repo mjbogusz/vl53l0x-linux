@@ -91,7 +91,7 @@ int main() {
 
 		// Calculate duration of current iteration
 		std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-		uint64_t duration = (std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1)).count();
+		long duration = (std::chrono::duration_cast<std::chrono::nanoseconds>(t2 - t1)).count();
 		// Save current time as reference for next iteration
 		t1 = t2;
 		// Add total measurements duration
